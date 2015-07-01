@@ -1,0 +1,131 @@
+#
+# Bisher nicht unterstütze Parameter
+#
+
+#
+# Bild-Parameter
+#
+resolution      1920    1080		# Bildbreite Bildhoehe (in Pixeln)
+background	0.6	0.0	0.0		    # Hintergrundfarbe schwarz
+
+# 
+# Projektion
+#
+eyepoint     1 100    0	# Auge-Koordinaten
+lookat        0    0     0	# Punkt, auf den das Auge schaut
+fovy            55		# Field-of-view-Winkel
+aspect          1.7777			# Verhaeltnis Breite zu Hoehe
+up             0.0     1.0     0.0     # Up-Vektor gibt an, wo oben ist
+
+#
+#  Globales Licht-Informationen
+#
+ambience	0.4	0.7	0.3	# schwarz
+
+
+#
+#  Geometriebeschreibungen
+#
+
+# Alle Koordinaten-Angaben beziehen sich auf ein Rechts-Hand-System
+
+# Die Quadriken (quadric) sind implizit durch folgende Gleichung beschrieben
+# Ax^2 + Bxy + Cxz + Dx + Ey^2 + Fyz + Gy + Hz^2 + Jz + K = 0
+
+# Fuer die Kugeln (sphere) bitte die vier folgenden Parameterwerte angeben
+# Kugel-Mittelpunktskoordinaten  (Xm  Ym  Zm)  Kugel-Radius
+# oder selbst Quadriken-Formel errechnen:
+# A = E = H = 1.0 ; B = C = F = 0.0 ; D = -2Xm , G = -2Ym , J = -2Zm und
+# K = Xm^2 + Ym^2 + Zm^2 - Radius^2
+# Im umgekehrten Zug kann man auch zu einer Kugel, die in impliziter
+# Quadriken-Formel gegeben ist, die Spheren-Parameter berechnen:
+# Xm = -0.5 * D  ,  Ym = -0.5 * G  ,  Zm = -0.5 * J  und
+# Radius = SQR( (D^2 + G^2 + J^2) / 4 - K )
+
+# Die Eckpunkte eines Polygons muessen so angegeben werden, dass ihre
+# Reihenfolge dem Gegen-Uhrzeigersinn entspricht, wenn man von aussen
+# auf's Polygon schaut
+
+# Geometriebeschreibung 1	
+#object geo1 quadric 3.0 0.0 0.0 0.0 1.0 0.0 0.0 1.0 800.0 150000.0
+object geo1 sphere -20.0 0.0 0.0 20
+object geo2 sphere 20.0 0.0 0.0 20
+
+# Geometriebeschreibung 2	(Kugel bei <200,50,-100> mit Radius 150)
+#object geo2 quadric 1.0 0.0 0.0 -400.0 1.0 0.0 -100.0 1.0 200.0 30000.0
+
+# Geometriebeschreibung 3	(Kugel bei <0,-1200,-500> mit Radius 1000)
+#object geo3 quadric 1.0 0.0 0.0 0.0 1.0 0.0 2400.0 1.0 1000.0 690000.0
+#object sphere	0.0   -1200.0   -500.0   1000.0
+
+
+# Geometriebeschreibung 4	(Kugel bei <-100,25,-300> mit Radius 50)
+#object geo4 quadric 1.0 0.0 0.0 200.0 1.0 0.0 -50.0 1.0 600.0 98125.0
+#object geo4 sphere -10.0 -10.0 -20.0 10.0
+
+
+# Geometriebeschreibung 5	(Kugel bei <0,100,-250> mit Radius 25)
+#object geo5 quadric 1.0 0.0 0.0 0.0 1.0 0.0 -200.0 1.0 500.0 71875.0
+#object geo5 sphere	0.0   0.0   -80.0   10.0
+
+#
+#  Oberflaechenbeschaffenheiten
+#
+
+# Oberflaechenbeschaffenheit 1
+property prop1
+ambient  0.2    0.0     0.0	  # leicht roetlicher Filter
+diffuse	 0.7	0.7	0.7	      # helleres silbergrau
+specular 1.0				  # Besser wäre specular 1.0	4  
+mirror	 0.8
+
+# Oberflaechenbeschaffenheit 2
+property prop2
+ambient  0.0    0.2     0.0	 # leicht gruenlich Filter
+diffuse	 0.5	0.5		0.5	 # mittleres silbergrau
+specular 1.0
+mirror	 1.0
+
+# Oberflaechenbeschaffenheit 3
+property prop3
+ambient  0.0    0.0     0.2	# leicht blaeulich Filter
+diffuse  0.1	0.6		0.1	# gruen
+specular 1.0
+mirror	 0.2
+
+
+#
+#  Licht-Informationen
+#
+
+# Lichtquelle 1
+light licht1
+direction -0.1	 1.0	 0.1
+color	   1.0	 0.5	 0.1
+
+# Lichtquelle 2
+light licht2
+direction  0.1	 0.2	 1.0
+color	   0.2	 0.2	 0.2
+
+# Lichtquelle 3
+light licht3
+direction  1.0	 2.0	 3.0
+color	   0.0	 0.5	 1.0
+
+# Lichtquelle 4
+light licht4
+direction  0.0	 0.0	 -1.0
+color	   0.0	 0.5	 1.0
+
+#
+#  Objekte (Zuordnung:  Geometriebeschreibung <-> Oberflaechenbeschaffenheit
+#
+
+# Zuordnungstabelle
+object	 geo1	 prop3
+object	 geo2	 prop1
+#object	 geo3	 prop2
+#object	 geo4	 prop1
+#object	 geo5	 prop1
+
