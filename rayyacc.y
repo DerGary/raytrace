@@ -61,6 +61,14 @@ extern void constructPolygon(char*n);
 extern void add_vertex(double x, double y, double z);
 extern void constructIndices();
 extern void add_indice(int a);
+extern void setResolution(int x, int y);
+extern void setBackground(double r, double g, double b);
+extern void setAmbience(double r, double g, double b);
+extern void setEyePoint(double x, double y, double z);
+extern void setLookAt(double x, double y, double z);
+extern void setAspectRatio(double ratio);
+extern void setFovY(double fovy);
+extern void setUp(double x, double y, double z);
 %}
 
 

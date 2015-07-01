@@ -8,6 +8,7 @@
 class Objekt
 {
 	Surface *surface;
+protected:
 	Property *properties;
 public:
 	Objekt(void) : surface(NULL), properties(NULL) {};

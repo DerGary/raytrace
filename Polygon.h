@@ -16,18 +16,17 @@ public:
 class PolygonObjekt : public Objekt
 {
 	PolygonSurface *surface;
-	Property *properties;
 public:
-	PolygonObjekt(void) : surface(NULL), properties(NULL) {};
-	PolygonObjekt(PolygonSurface *s, Property *p) : surface(s), properties(p) {};
+	PolygonObjekt(void) : Objekt(), surface(NULL) {};
+	PolygonObjekt(PolygonSurface *s, Property *p) : Objekt(NULL,p), surface(s) {};
 
-	Property getProperty() override { return *properties; };
+	//Property getProperty() override { return *properties; };
 	PolygonSurface& getSurface() override { return *surface; };
 
 	Vector get_normal(Vector &v) override{
 		Vector a, b;
 		a = surface->vertices.at(0).vsub(surface->vertices.at(1));
 		b = surface->vertices.at(0).vsub(surface->vertices.at(2));
-		return a.cross(b).cross(v);
+		return a.cross(b).normalize();
 	};
 };

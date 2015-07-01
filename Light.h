@@ -10,7 +10,7 @@ public:
 	Light(void): direction(), color() {};
 	Light(Vector &v, Color &c): direction(v), color(c) {};
 
-	Vector getDirection() { return direction; };
+	Vector& getDirection() { return direction; };
 	Color getColor() { return color; };
 };
 

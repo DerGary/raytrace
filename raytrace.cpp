@@ -18,7 +18,7 @@ using namespace std;
 
 vector<Surface> surfaces;
 vector<Property> properties;
-vector<Objekt> objekte;
+vector<Objekt*> objekte;
 vector<Light> lights;
 vector<Vector> vertices;
 vector<vector<int>> allIndices;
@@ -100,24 +100,16 @@ extern "C" {
 		for(vector<Surface>::iterator i = surfaces.begin(); i != surfaces.end(); ++i) 
 			if(i->getName() == ss) {
 				s = &(*i);
-				objekte.push_back(Objekt(s, p));
+				objekte.push_back(new Objekt(s, p));
 				break;
 			}
 		for (vector<PolygonSurface>::iterator i = polygonSurfaces.begin(); i != polygonSurfaces.end(); ++i)
 			if (i->getName() == ss)
 			{
 				s = &(*i);
-				//objekte.push_back(PolygonObjekt(&*i, p));
+				objekte.push_back(new PolygonObjekt(&*i, p));
 			}
 
-		//if(s == NULL) {
-		//	fprintf(stderr, "Surface not found: %s\n", ns);
-		//	exit(1);
-		//}
-		//if(p == NULL) {
-		//	fprintf(stderr, "Property not found: %s\n", np);
-		//	exit(1);
-		//}
 		fprintf(stderr, "  adding object: surface %s, property %s\n", ns, np);
 	}
 	void add_sphere(char *n, double xm, double ym, double zm, double r)
@@ -139,15 +131,32 @@ extern "C" {
 
 	void constructPolygon(char*n)
 	{
-		
 		for (auto&& a : allIndices)
 		{
 			vector<Vector> temp;
-			for (auto&& b : a)
+			Vector u,v,w;
+			u = vertices.at(a.at(0) - 1);
+			v = vertices.at(a.at(1) - 1);
+			w = vertices.at(a.at(2) - 1);
+			temp.push_back(u);
+			temp.push_back(v);
+			temp.push_back(w);
+			polygonSurfaces.push_back(PolygonSurface(n, temp));
+			if (a.size()>3)
 			{
-				temp.push_back(vertices.at(b - 1));
+				for (int i = 3; i < a.size(); i++){
+					v = vertices.at(a.at(i) - 1);
+
+					Vector t = v;
+					v = w;
+					w = t;
+					temp = vector<Vector>();
+					temp.push_back(u);
+					temp.push_back(v);
+					temp.push_back(w);
+					polygonSurfaces.push_back(PolygonSurface(n, temp));
+				}
 			}
-			polygonSurfaces.push_back(PolygonSurface(n,temp));
 		}
 		allIndices = vector<vector<int>>();
 		vertices = vector<Vector>();
@@ -183,44 +192,15 @@ int main(int argc, _TCHAR* argv[])
 		return 1;
 	}
 	fclose (yyin);
-	
-	Vector defaultUp(0, 1, 0);
-	up = up.normalize();
-	double rcos = up.dot(defaultUp);
-	Vector crossProduct = up.cross(defaultUp);
-	double rsin = crossProduct.veclength();
 
-	double u = crossProduct.x, v = crossProduct.y, w = crossProduct.z;
-	//double matrix[3][3];
-	//Matrix matrix = Matrix();
-	//matrix.M11 = rcos + u*u*(1 - rcos);
-	//matrix.M21 = w * rsin + v*u*(1 - rcos);
-	//matrix.M31 = -v * rsin + w*u*(1 - rcos);
-	//matrix.M12 = -w * rsin + u*v*(1 - rcos);
-	//matrix.M22 = rcos + v*v*(1 - rcos);
-	//matrix.M32 = u * rsin + w*v*(1 - rcos);
-	//matrix.M13 = v * rsin + u*w*(1 - rcos);
-	//matrix.M23 = -u * rsin + v*w*(1 - rcos);
-	//matrix.M33 = rcos + w*w*(1 - rcos);
-	/*matrix[0][0] = rcos + u*u*(1 - rcos);
-	matrix[1][0] = w * rsin + v*u*(1 - rcos);
-	matrix[2][0] = -v * rsin + w*u*(1 - rcos);
-	matrix[0][1] = -w * rsin + u*v*(1 - rcos);
-	matrix[1][1] = rcos + v*v*(1 - rcos);
-	matrix[2][1] = u * rsin + w*v*(1 - rcos);
-	matrix[0][2] = v * rsin + u*w*(1 - rcos);
-	matrix[1][2] = -u * rsin + v*w*(1 - rcos);
-	matrix[2][2] = rcos + w*w*(1 - rcos);
-*/
+	up = up.normalize();
+
+
 	int Xresolution = xRes;
 	int Yresolution = yRes;
-	
-	
 
 	Vector camZVektor = lookAt.vsub(eye);
-	
 	Vector camXVektor = up.cross(camZVektor).normalize().svmpy(-1);
-
 	Vector camYVektor = camZVektor.cross(camXVektor).normalize();
 
 	double fovYValue = tan((0.5*fovY)*(M_PI / 180))*camZVektor.veclength();
@@ -228,9 +208,7 @@ int main(int argc, _TCHAR* argv[])
 	double planeWidth = fovYValue*aspectRatio;
 	double planeHeight = fovYValue;
 
-	//Vector planeXStart = camXVektor.svmpy(-(SCREENWIDTH / 2)).vadd(lookAt);
 	Vector planeStart = camXVektor.svmpy(-(planeWidth)).vadd(camYVektor.svmpy(-(planeHeight))).vadd(lookAt);
-	//Vector planeYStart = camYVektor.svmpy(-(SCREENHEIGHT / 2)).vadd(lookAt);
 
 	Vector incrementX = camXVektor.svmpy(planeWidth*2 / xRes);
 	Vector incrementY = camYVektor.svmpy(planeHeight*2 / yRes);
@@ -247,13 +225,9 @@ int main(int argc, _TCHAR* argv[])
 	for (int scanline = 0; scanline < Yresolution; scanline++) {
 
 		printf("%4d\r", Yresolution - scanline);
-		//y += dy;
-		//Vector laufX = laufY;
-		//double x = -0.5 * SCREENWIDTH;
 		laufX = laufY;
 		for (int sx = 0; sx < Xresolution; sx++) {
 			ray.setDirection(laufX.vsub(ray.getOrigin()).normalize());
-			//x += dx;
 			laufX = laufX.vadd(incrementX);
 			Color color = ray.shade(objekte, lights);
 
@@ -264,43 +238,6 @@ int main(int argc, _TCHAR* argv[])
 		}
 		laufY = laufY.vadd(incrementY);
 	}
-
-
-
-
-	//double dx = SCREENWIDTH*aspectRatio / (double)Xresolution;
-	//double dy = SCREENHEIGHT / (double)Yresolution;
-	//double fovYValue=tan((0.5*fovY)*(M_PI / 180));
-	//dx = dx*fovYValue;
-	//dy = dy*fovYValue;
-	////double dx = tan(0.5*fovX)*aspectRatio / (double)SCREENWIDTH;
-	////double dy = tan(0.5*fovY) / (double)SCREENHEIGHT;
-	//double y = (-0.5 * SCREENHEIGHT)*fovYValue;
-	////Vector eye(0, 0, SCREENHEIGHT * 8.0);
-	//Ray	ray(lookAt, eye,0);
-	//ray.setBackgroundColor(background);
-	//ray.setGlobalAmbience(ambience);
-
-
-	//Image bild(Xresolution, Yresolution);
-
-	//for (int scanline=0; scanline < Yresolution; scanline++) {
-
-	//	printf("%4d\r", Yresolution-scanline);
-	//	y += dy;
-	//	double x = (-0.5 * SCREENWIDTH)*fovYValue;
-
-	//	for (int sx=0; sx < Xresolution; sx++) {
-	//		ray.setDirection((Vector(x+lookAt.x, y+lookAt.y, 0.0+lookAt.z).vsub(ray.getOrigin()).normalize()));
-	//		x += dx;
-	//		Color color = ray.shade(objekte, lights);
-
-	//		bild.set(sx, scanline, 
-	//			color.r > 1.0 ? 255 : int(255 * color.r),
-	//			color.g > 1.0 ? 255 : int(255 * color.g),
-	//			color.b > 1.0 ? 255 : int(255 * color.b));
-	//	}
-	//}
 
 	char *name = "raytrace-bild.ppm";
 	bild.save(name);
