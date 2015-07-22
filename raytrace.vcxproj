@@ -98,8 +98,11 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="data\AventOrig.data" />
     <None Include="data\dflt.data" />
     <None Include="data\julius.data" />
+    <None Include="data\lamboScene.data" />
+    <None Include="data\lamboSceneAll.data" />
     <None Include="data\scene.data" />
     <None Include="raylex.l" />
     <None Include="rayyacc.y" />
@@ -111,6 +114,7 @@
     <ClInclude Include="Light.h" />
     <ClInclude Include="Matrix.h" />
     <ClInclude Include="Objekt.h" />
+    <ClInclude Include="poly2tri\tetgen.h" />
     <ClInclude Include="Polygon.h" />
     <ClInclude Include="Property.h" />
     <ClInclude Include="Ray.h" />
@@ -123,7 +127,8 @@
     <ClCompile Include="Color.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="Light.cpp" />
-    <ClCompile Include="Objekt.cpp" />
+    <ClCompile Include="poly2tri\predicates.cxx" />
+    <ClCompile Include="poly2tri\tetgen.cxx" />
     <ClCompile Include="Property.cpp" />
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="raytrace.cpp" />
@@ -135,8 +140,13 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Surface.cpp" />
     <ClCompile Include="Vector.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="data\Avent.obj">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Object>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

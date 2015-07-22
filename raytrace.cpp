@@ -10,6 +10,10 @@
 #include <cmath>
 #include "Matrix.h"
 #include "Polygon.h"
+#include <thread>
+#include <sstream>
+#include <ctime>
+#include "poly2tri/tetgen.h"
 
 const double SCREENWIDTH = 1000;
 const double SCREENHEIGHT = 1000;
@@ -21,9 +25,12 @@ vector<Property> properties;
 vector<Objekt*> objekte;
 vector<Light> lights;
 vector<Vector> vertices;
+vector<Vector> normalVertices;
 vector<vector<int>> allIndices;
+vector<vector<int>> allNormalIndices;
 vector<int> indices;
-vector<PolygonSurface> polygonSurfaces;
+vector<int> normalIndices;
+vector<PolygonSurface*> polygonSurfaces;
 
 static int xRes, yRes;
 static Color background;
@@ -34,6 +41,17 @@ static double aspectRatio;
 static double fovY;
 static double fovX = 90;
 static Vector up;
+
+struct VertexNormal
+{
+	Vector v;
+	Vector n;
+};
+struct Sphere
+{
+	Vector midPoint;
+	float radius;
+};
 
 extern "C" {
 	extern FILE *yyin;
@@ -47,9 +65,9 @@ extern "C" {
 		fprintf(stderr,"  adding quadric %s %f %f %f %f %f %f %f %f %f %f %f %f\n", n, a,b,c,d,e,f,g,h,j,k);
 		surfaces.push_back(Surface(n, a,b,c,d,e,f,g,h,j,k));
 	};
-	void add_property(char *n,  double ar, double ag, double ab, double r, double g, double b, double s, double m) {
+	void add_property(char *n,  double ar, double ag, double ab, double r, double g, double b, double s, double m, double shininess) {
 		fprintf(stderr,"  adding prop %f %f %f %f %f\n", r, g, b, s, m);
-		properties.push_back(Property(n, Color(ar, ag, ab), Color(r, g, b), s, m));
+		properties.push_back(Property(n, Color(ar, ag, ab), Color(r, g, b), s, m, shininess));
 	};
 	void setResolution(int x, int y){
 		xRes = x;
@@ -103,12 +121,20 @@ extern "C" {
 				objekte.push_back(new Objekt(s, p));
 				break;
 			}
-		for (vector<PolygonSurface>::iterator i = polygonSurfaces.begin(); i != polygonSurfaces.end(); ++i)
-			if (i->getName() == ss)
+
+		vector<PolygonSurface*> polys;
+		for (PolygonSurface* s : polygonSurfaces)
+		{
+			if (s->getName() == ss)
 			{
-				s = &(*i);
-				objekte.push_back(new PolygonObjekt(&*i, p));
+				polys.push_back(s);
 			}
+		}
+		if (polys.size() > 0)
+		{
+			PolygonObjekt* po = new PolygonObjekt(polys, p);
+			objekte.push_back(po);
+		}
 
 		fprintf(stderr, "  adding object: surface %s, property %s\n", ns, np);
 	}
@@ -129,37 +155,199 @@ extern "C" {
 		surfaces.push_back(Surface(n, a, b, c, d, e, f, g, h, j, k));
 	}
 
+	void MinimumBoundingSphere(Sphere& sphere, Vector& a, Vector& b, Vector& c) {
+		float dotABAB = b.vsub(a).dot(b.vsub(a));
+		float dotABAC = b.vsub(a).dot(c.vsub(a));
+		float dotACAC = c.vsub(a).dot(c.vsub(a));
+		float d = 2.0f*(dotABAB*dotACAC - dotABAC*dotABAC);
+		Vector midPoint;
+		Vector referencePt = a;
+		if (abs(d) <= 0.00001) {
+			// a, b, and c lie on a line. Circle center is center of AABB of the
+			// points, and radius is distance from circle center to AABB corner
+			Vector min, max;
+			min.x = DBL_MAX; max.x = -DBL_MAX;
+			min.y = DBL_MAX; max.y = -DBL_MAX;
+			min.z = DBL_MAX; max.z = -DBL_MAX;
+
+			//minimale und maximale Werte berechnen
+			if (a.x < min.x) min.x = a.x;
+			if (a.x > max.x) max.x = a.x;
+			if (a.y < min.y) min.y = a.y;
+			if (a.y > max.y) max.y = a.y;
+			if (a.z < min.z) min.z = a.z;
+			if (a.z > max.z) max.z = a.z;
+
+			if (b.x < min.x) min.x = b.x;
+			if (b.x > max.x) max.x = b.x;
+			if (b.y < min.y) min.y = b.y;
+			if (b.y > max.y) max.y = b.y;
+			if (b.z < min.z) min.z = b.z;
+			if (b.z > max.z) max.z = b.z;
+
+			if (c.x < min.x) min.x = c.x;
+			if (c.x > max.x) max.x = c.x;
+			if (c.y < min.y) min.y = c.y;
+			if (c.y > max.y) max.y = c.y;
+			if (c.z < min.z) min.z = c.z;
+			if (c.z > max.z) max.z = c.z;
+			midPoint.x = (min.x + max.x) / 2;
+			midPoint.y = (min.y + max.y) / 2;
+			midPoint.z = (min.z + max.z) / 2;
+			referencePt = min;
+		}
+		else {
+			float s = (dotABAB*dotACAC - dotACAC*dotABAC) / d;
+			float t = (dotACAC*dotABAB - dotABAB*dotABAC) / d;
+			// s controls height over AC, t over AB, (1-s-t) over BC
+			if (s <= 0.0f) {
+				midPoint = a.vadd(c).svmpy(0.5);
+			}
+			else if (t <= 0.0f) {
+				midPoint = a.vadd(b).svmpy(0.5);
+			}
+			else if (s + t >= 1.0f) {
+				midPoint = b.vadd(c).svmpy(0.5);
+				referencePt = b;
+			}
+			else
+				midPoint = a.vadd(b.vsub(a).svmpy(s)).vadd(c.vsub(a).svmpy(t));
+		}
+		sphere.radius = sqrt(midPoint.vsub(referencePt).dot(midPoint.vsub(referencePt)));
+		sphere.midPoint = midPoint;
+	}
+
 	void constructPolygon(char*n)
 	{
-		for (auto&& a : allIndices)
+
+		//for (vector<int> i : allIndices)
+		//{
+		//	tetgenio in ,out;
+		//	in.pointlist = new double[i.size() *3];
+		//	in.numberofpoints = i.size();
+		//	in.firstnumber = 0;
+		//	in.numberoffacets = 1;
+		//	in.facetlist = new tetgenio::facet[in.numberoffacets];
+		//	in.facetmarkerlist = new int[in.numberoffacets];
+		//	tetgenio::facet* f = &in.facetlist[0];
+		//	f->numberofpolygons = 1;
+		//	f->polygonlist = new tetgenio::polygon[f->numberofpolygons];
+		//	f->numberofholes = 0;
+		//	f->holelist = NULL;
+		//	tetgenio::polygon *p = &f->polygonlist[0];
+		//	p->numberofvertices = i.size();
+		//	p->vertexlist = new int[p->numberofvertices];
+		//	int count = 0;
+		//	int count2 = 0;
+		//	for (int j : i)
+		//	{
+		//		Vector v = vertices.at(j - 1);
+		//		in.pointlist[count++] = v.x;
+		//		in.pointlist[count++] = v.y;
+		//		in.pointlist[count++] = v.z;
+		//		p->vertexlist[count2] = count2++;
+		//	}
+		//	tetgenbehavior behaviour;
+		//	behaviour.weighted = 1;
+		//	tetrahedralize(&behaviour, &in, &out);
+		//}
+
+		//for (int i = 0; i < allIndices.size(); i++)
+		//{
+		//	vector<int> indices = allIndices.at(i);
+		//	vector<VertexNormal> vert;
+		//	for (int j = 0; j < indices.size(); j++)
+		//	{
+		//		VertexNormal vn;
+		//		vn.v = vertices.at(indices.at(j) - 1);
+		//		if (normalIndices.size() > j)
+		//		{
+		//			vn.n = normalVertices.at(normalIndices.at(j) - 1);
+		//		}
+		//		vert.push_back(vn);
+		//	}
+
+		//	VertexNormal u, nahe, nahe2;
+		//	u = vert.at(0);
+		//	double minDist = DBL_MAX;
+		//	for (int j = 1; j < vert.size(); j++)
+		//	{
+		//		VertexNormal temp = vert.at(j);
+		//		double dist = u.v.vsub(temp.v).veclength();
+		//		if (dist < minDist)
+		//		{
+		//			minDist = dist;
+		//			nahe2 = nahe;
+		//			nahe = temp;
+		//		}
+		//	}
+
+		//	Vector normal = u.v.vsub(nahe.v).cross(u.v.vsub(nahe2.v)).normalize();
+		//	if (normal.dot(u.n)<0)
+		//	{
+		//		VertexNormal temp = nahe2;
+		//		nahe2 = nahe;
+		//		nahe = temp;
+		//	}
+		//	Sphere sphere;
+		//	MinimumBoundingSphere(sphere, u.v, nahe.v, nahe2.v);
+		//}
+
+
+		for (int i = 0; i < allIndices.size(); i++)
 		{
-			vector<Vector> temp;
-			Vector u,v,w;
+			vector<int> a = allIndices.at(i);
+			Vector u, v, w;
 			u = vertices.at(a.at(0) - 1);
 			v = vertices.at(a.at(1) - 1);
 			w = vertices.at(a.at(2) - 1);
-			temp.push_back(u);
-			temp.push_back(v);
-			temp.push_back(w);
-			polygonSurfaces.push_back(PolygonSurface(n, temp));
-			if (a.size()>3)
+			if (allNormalIndices.size() > 0)
 			{
-				for (int i = 3; i < a.size(); i++){
-					v = vertices.at(a.at(i) - 1);
+				vector<int> normals = allNormalIndices.at(i);
+				Vector n0, n1, n2;
+				n0 = normalVertices.at(normals.at(0) - 1).normalize();
+				n1 = normalVertices.at(normals.at(1) - 1).normalize();
+				n2 = normalVertices.at(normals.at(2) - 1).normalize();
+				polygonSurfaces.push_back(new PolygonSurface(n, u, v, w, n0, n1, n2));
+				if (a.size()>3)
+				{
+					for (int j = 3; j < a.size(); j++){
+						v = vertices.at(a.at(j) - 1);
+						n1 = normalVertices.at(normals.at(j) - 1);
 
-					Vector t = v;
-					v = w;
-					w = t;
-					temp = vector<Vector>();
-					temp.push_back(u);
-					temp.push_back(v);
-					temp.push_back(w);
-					polygonSurfaces.push_back(PolygonSurface(n, temp));
+						Vector t = v;
+						v = w;
+						w = t;
+
+						t = n1;
+						n1 = n2;
+						n2 = t;
+						polygonSurfaces.push_back(new PolygonSurface(n, u, v, w, n0,n1,n2));
+					}
+				}
+			} else
+			{
+				polygonSurfaces.push_back(new PolygonSurface(n, u, v, w));
+				if (a.size()>3)
+				{
+					for (int j = 3; j < a.size(); j++){
+						v = vertices.at(a.at(j) - 1);
+
+						Vector t = v;
+						v = w;
+						w = t;
+						polygonSurfaces.push_back(new PolygonSurface(n, u, v, w));
+					}
 				}
 			}
 		}
 		allIndices = vector<vector<int>>();
-		vertices = vector<Vector>();
+		allNormalIndices = vector<vector<int>>();
+		//vertices = vector<Vector>();
+	}
+	void add_normalVertex(double x, double y, double z)
+	{
+		normalVertices.push_back(Vector(x, y, z));
 	}
 	void add_vertex(double x, double y, double z)
 	{
@@ -168,12 +356,91 @@ extern "C" {
 	void constructIndices()
 	{
 		allIndices.push_back(indices);
+		allNormalIndices.push_back(normalIndices);
 		indices = vector<int>();
+		normalIndices = vector<int>();
 	}
 	void add_indice(int a)
 	{
 		indices.push_back(a);
 	}
+	void add_stringIndice(char* s)
+	{
+		stringstream ss(s);
+		string result;
+		getline(ss, result, '/');
+		indices.push_back(atoi(result.c_str()));
+	}
+	void add_normal(int a)
+	{
+		normalIndices.push_back(a);
+	}
+}
+struct Pixel
+{
+	int x, y, r, g, b;
+	Pixel(int x, int y, int r, int g, int b) : x(x), y(y), r(r), g(g), b(b){}
+};
+
+void fooNeu(int process, int processCount, Image& bild)
+{
+
+	int Xresolution = xRes;
+	int Yresolution = yRes;
+
+	Vector camZVektor = lookAt.vsub(eye);
+	Vector camXVektor = up.cross(camZVektor).normalize().svmpy(-1);
+	Vector camYVektor = camZVektor.cross(camXVektor).normalize();
+
+	double fovYValue = tan((0.5*fovY)*(M_PI / 180))*camZVektor.veclength();
+
+	double planeWidth = fovYValue*aspectRatio;
+	double planeHeight = fovYValue;
+
+	Vector planeStart = camXVektor.svmpy(-(planeWidth)).vadd(camYVektor.svmpy(-(planeHeight))).vadd(lookAt);
+
+	Vector incrementX = camXVektor.svmpy(planeWidth * 2 / xRes);
+	Vector incrementY = camYVektor.svmpy(planeHeight * 2 / yRes);
+
+	Vector laufY = planeStart.vadd(incrementY.svmpy(process));
+	Vector laufX = laufY;
+
+	incrementY = incrementY.svmpy(processCount);
+
+	Ray	ray(lookAt, eye, 0);
+	ray.setBackgroundColor(background);
+	ray.setGlobalAmbience(ambience);
+
+
+	std::time_t timeEnd = std::time(nullptr);
+	int finish = (Yresolution / processCount);
+	if (Yresolution % processCount != 0)
+	{
+		finish += 1;
+	}
+	for (int scanline = 0; scanline < finish; scanline++) {
+	std:time_t currentTime = std::time(nullptr);
+		printf("%4d Zeit bis ende: %4lld minuten\n\r", finish - scanline, (currentTime - timeEnd)*(finish - scanline) / 60);
+		timeEnd = currentTime;
+		laufX = laufY;
+		for (int sx = 0; sx < Xresolution; sx++) {
+			ray.setDirection(laufX.vsub(ray.getOrigin()).normalize());
+			laufX = laufX.vadd(incrementX);
+			Color color = ray.shade(objekte, lights);
+
+			//bild->push_back(Pixel(sx, process + (scanline*processCount),
+			//	color.r > 1.0 ? 255 : int(255 * color.r),
+			//	color.g > 1.0 ? 255 : int(255 * color.g),
+			//	color.b > 1.0 ? 255 : int(255 * color.b)));
+			
+			bild.set(sx, process + (scanline*processCount),
+			color.r > 1.0 ? 255 : int(255 * color.r),
+			color.g > 1.0 ? 255 : int(255 * color.g),
+			color.b > 1.0 ? 255 : int(255 * color.b));
+		}
+		laufY = laufY.vadd(incrementY);
+	}
+	printf("Thread finished\n");
 }
 
 
@@ -181,7 +448,7 @@ extern "C" {
 int main(int argc, _TCHAR* argv[])
 {
 	/* parse the input file */
-	yyin = fopen("data/scene.data","r");
+	yyin = fopen("data/lamboSceneAll.data","r");
 	if(yyin == NULL) {
 		fprintf(stderr, "Error: Konnte Datei nicht öffnen\n");
 		return 1;
@@ -192,6 +459,9 @@ int main(int argc, _TCHAR* argv[])
 		return 1;
 	}
 	fclose (yyin);
+
+
+	
 
 	up = up.normalize();
 
@@ -222,26 +492,35 @@ int main(int argc, _TCHAR* argv[])
 	ray.setBackgroundColor(background);
 	ray.setGlobalAmbience(ambience);
 
-	for (int scanline = 0; scanline < Yresolution; scanline++) {
-
-		printf("%4d\r", Yresolution - scanline);
-		laufX = laufY;
-		for (int sx = 0; sx < Xresolution; sx++) {
-			ray.setDirection(laufX.vsub(ray.getOrigin()).normalize());
-			laufX = laufX.vadd(incrementX);
-			Color color = ray.shade(objekte, lights);
-
-			bild.set(sx, scanline,
-				color.r > 1.0 ? 255 : int(255 * color.r),
-				color.g > 1.0 ? 255 : int(255 * color.g),
-				color.b > 1.0 ? 255 : int(255 * color.b));
-		}
-		laufY = laufY.vadd(incrementY);
+	int processCount = 4;
+	vector<thread*> pool;
+	//vector<vector<Pixel>*> pixelPool;
+	for (int i = 0; i < processCount; i++)
+	{
+		//vector<Pixel>* pix = new vector<Pixel>();
+		//std::thread* t = new thread(foo, (int)(Yresolution / processCount)*(i), (int)(Yresolution / processCount)*(i + 1), pix);
+		std::thread* t = new thread(fooNeu, i, processCount, bild);
+		//pixelPool.push_back(pix);
+		pool.push_back(t);
+		
 	}
+	for (int i = 0; i < processCount; i++)
+	{
+		pool.at(i)->join();
+	}
+
+	//for (int i = 0; i < pixelPool.size(); i++)
+	//{
+	//	vector<Pixel>* pix = pixelPool.at(i);
+	//	for (int j = 0; j < pix->size(); j++)
+	//	{
+	//		Pixel pixel = pix->at(j);
+	//		bild.set(pixel.x, pixel.y, pixel.r, pixel.g, pixel.b);
+	//	}
+	//}
 
 	char *name = "raytrace-bild.ppm";
 	bild.save(name);
 	std::cin.get();
 	return 0;
 }
-

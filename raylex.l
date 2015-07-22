@@ -13,7 +13,7 @@ ganzz    ({vorz}{ziffern})
 kommaz   ({vorz}{ziffern}*[.]{ziffern})
 expo	 ([eE]{vorz}{ziffern})
 zahl	 (({kommaz}{expo}?)|({ganzz}{expo}))
-string   ([a-zA-Z0-9+-_]+)
+string   ([a-zA-Z0-9+-_\\\/]+)
 
 %%
 
@@ -26,7 +26,10 @@ aspect { return(ASPECT); }
 object { return(OBJECT); }
 poly { return(POLY); }
 polygon { return(POLY); } /* equivalent spelling */
+f { return (FPOLY); }
 vertex { return(VERTEX); }
+v {return(VERTEX);}
+vn {return(NORMALVERTEX);}
 quadric { return(QUADRIC); }
 sphere { return(SPHERE); }
 property { return(PROPERTY); }

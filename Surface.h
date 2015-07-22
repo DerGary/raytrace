@@ -12,7 +12,17 @@ public:
 	Surface(char *n, double _a, double _b, double _c, double _d, double _e, double _f, double _g, double _h, double _j, double _k) : 
 	name(n), a(_a), b(_b), c(_c), d(_d), e(_e), f(_f), g(_g), h(_h), j(_j), k(_k) {};
 
-	std::string getName() { return name; };
+	virtual ~Surface() {};
 
+	virtual std::string getName() { return name; };
+
+	virtual Vector get_normal(Vector &v)
+	{
+		Vector normal(
+			v.dot(Vector(a + a, b, c)) + d,
+			v.dot(Vector(b, e + e, f)) + g,
+			v.dot(Vector(c, f, h + h)) + j);
+
+		return normal.normalize();
+	};
 };
-

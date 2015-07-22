@@ -44,7 +44,7 @@ static int yyerror(char *s)
 }
 
 struct {
-	double ar,ag,ab, r, g, b, s, m;
+	double ar,ag,ab, r, g, b, s, m, shininess;
 	} prop;
 
 struct {
@@ -53,7 +53,7 @@ struct {
 
 int yylex();
 extern void add_quadric(char *n, double a, double b, double c, double d, double e, double f, double g, double h, double j, double k);
-extern void add_property(char *n, double ar, double ag, double ab, double r, double g, double b, double s, double m);
+extern void add_property(char *n, double ar, double ag, double ab, double r, double g, double b, double s, double m, double shininess);
 extern void add_objekt(char *ns, char *np);
 extern void add_light(char *n, double dirx, double diry, double dirz, double colr, double colg, double colb);
 extern void add_sphere(char *n, double xm, double ym, double zm, double r);
@@ -69,6 +69,8 @@ extern void setLookAt(double x, double y, double z);
 extern void setAspectRatio(double ratio);
 extern void setFovY(double fovy);
 extern void setUp(double x, double y, double z);
+extern void add_normal(int a);
+extern void add_normalVertex(double x, double y, double z);
 %}
 
 
@@ -80,8 +82,8 @@ extern void setUp(double x, double y, double z);
 %token <floatval> FLOAT
 %token <stringval> STRING
 %token RESOLUTION EYEPOINT LOOKAT UP FOVY ASPECT
-%token OBJECT QUADRIC SPHERE POLY
-%token VERTEX
+%token OBJECT QUADRIC SPHERE POLY FPOLY
+%token VERTEX v NORMALVERTEX
 %token PROPERTY AMBIENT DIFFUSE SPECULAR MIRROR
 %token AMBIENCE BACKGROUND
 %token LIGHT DIRECTION COLOR
@@ -236,7 +238,7 @@ polygon_surface
       {
 	printf("object poly\n"); 
       }
-      vertex_section polygon_section
+      vertex_section normalvertex_section polygon_section
 	  {
 			constructPolygon($2);
 	  }
@@ -244,7 +246,24 @@ polygon_surface
 
 vertex_section
     : vertices
+	|
     ;
+
+normalvertex_section
+	: normalvertices
+	| 
+	;
+
+normalvertices
+	:normalvertices one_normalvertex
+	| one_normalvertex
+	;
+
+one_normalvertex
+	: NORMALVERTEX realVal realVal realVal
+	{
+		add_normalVertex($2,$3,$4);
+	}
 
 vertices
     : vertices one_vertex
@@ -253,11 +272,13 @@ vertices
 
 one_vertex
     : VERTEX realVal realVal realVal
-      { printf("vertex %f %f %f\n", $2, $3, $4); add_vertex($2,$3,$4); }
+      { /*printf("vertex %f %f %f\n", $2, $3, $4);*/ add_vertex($2,$3,$4); }
+
     ;
 
 polygon_section
     : polygons
+	|
     ;
 
 polygons 
@@ -270,7 +291,21 @@ one_polygon
       { printf("polygon"); }
       indices
       { printf("\n"); constructIndices(); }
+	| FPOLY
+		{ /*printf("polygon");*/ }
+		indicesf
+		{ /*printf("\n");*/ constructIndices(); }
     ;
+
+indicesf
+    : indicesf three_index
+    | three_index
+    ;
+
+three_index
+	: index index index
+	{ /*printf("polygon idx %d\n", $1);*/ add_indice($1); add_normal($3); }
+	;
 
 indices
     : indices one_index
@@ -294,7 +329,7 @@ properties
 one_property
     : PROPERTY STRING ambient diffuse specular mirror
 	{
-		add_property($2, prop.ar, prop.ag, prop.ab, prop.r, prop.g, prop.b, prop.s, prop.m); 
+		add_property($2, prop.ar, prop.ag, prop.ab, prop.r, prop.g, prop.b, prop.s, prop.m, prop.shininess); 
 		free($2);
 	}
     ;
@@ -318,9 +353,10 @@ diffuse
     ;
 
 specular
-    : SPECULAR  zeroToOneVal /* realVal */
+    : SPECULAR  zeroToOneVal  realVal 
       { 
 		prop.s = $2;
+		prop.shininess = $3;
       }
     ;
 

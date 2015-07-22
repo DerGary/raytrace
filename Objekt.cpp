@@ -10,13 +10,5 @@
 /* Rueckgabeparameter: Berechneter Normalenvektor                             */
 /*----------------------------------------------------------------------------*/
 
-Vector Objekt::get_normal(Vector &v)
-{
-	Vector normal( 
-		v.dot(Vector(surface->a+surface->a, surface->b, surface->c)) + surface->d,
-		v.dot(Vector(surface->b, surface->e+surface->e, surface->f)) + surface->g,
-		v.dot(Vector(surface->c, surface->f, surface->h+surface->h)) + surface->j);
 
-	return normal.normalize();
-} /* get_normal() */
 

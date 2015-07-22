@@ -31,6 +31,15 @@
     <None Include="data\julius.data">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="data\lamboScene.data">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="data\AventOrig.data">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="data\lamboSceneAll.data">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -69,6 +78,9 @@
     <ClInclude Include="Polygon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="poly2tri\tetgen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -89,12 +101,6 @@
     <ClCompile Include="Property.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Surface.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Objekt.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="rayyacc.tab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -104,5 +110,16 @@
     <ClCompile Include="Image.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="poly2tri\predicates.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="poly2tri\tetgen.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="data\Avent.obj">
+      <Filter>Resource Files</Filter>
+    </Object>
   </ItemGroup>
 </Project>
